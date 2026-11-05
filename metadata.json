@@ -1,0 +1,8 @@
+{
+  "name": "School Management",
+  "description": "Comprehensive school management system for student profiles, class rosters, attendance tracking, grading, and school notices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
