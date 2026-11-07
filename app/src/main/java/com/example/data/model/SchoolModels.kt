@@ -1,130 +1,103 @@
 package com.example.data.model
 
-enum class AttendanceStatus(val label: String) {
-    PRESENT("Present"),
-    ABSENT("Absent"),
-    LATE("Late"),
-    EXCUSED("Excused")
+enum class SubjectType(val labelBn: String, val labelEn: String) {
+    MANDATORY("আবশ্যিক", "Mandatory"),
+    OPTIONAL("ঐচ্ছিক", "Optional")
 }
 
-enum class NoticePriority(val label: String) {
-    HIGH("Urgent"),
-    NORMAL("Normal"),
-    LOW("Info")
+enum class ExamCategory(val labelBn: String, val labelEn: String) {
+    FIRST_TERM("প্রথম সাময়িক", "1st Term"),
+    SECOND_TERM("দ্বিতীয় সাময়িক", "2nd Term"),
+    ANNUAL("বার্ষিক পরীক্ষা", "Annual Exam")
 }
-
-enum class FeeStatus(val label: String) {
-    PAID("Paid"),
-    PARTIAL("Partial"),
-    PENDING("Pending"),
-    OVERDUE("Overdue")
-}
-
-data class Student(
-    val id: String,
-    val rollNo: String,
-    val firstName: String,
-    val lastName: String,
-    val grade: String,
-    val section: String,
-    val gender: String,
-    val email: String,
-    val phone: String,
-    val parentName: String,
-    val parentPhone: String,
-    val parentEmail: String,
-    val bloodGroup: String = "O+",
-    val address: String = "124 Academy Way",
-    val attendancePercentage: Int = 94,
-    val feeStatus: FeeStatus = FeeStatus.PAID,
-    val avatarColorHex: Long = 0xFF1E3A8A
-) {
-    val fullName: String get() = "$firstName $lastName"
-    val classIdentifier: String get() = "$grade-$section"
-}
-
-data class Teacher(
-    val id: String,
-    val employeeId: String,
-    val name: String,
-    val department: String,
-    val subjects: List<String>,
-    val assignedClass: String,
-    val email: String,
-    val phone: String,
-    val qualification: String,
-    val experienceYears: Int,
-    val avatarColorHex: Long = 0xFF0D9488
-)
-
-data class ClassScheduleItem(
-    val dayOfWeek: String,
-    val period: Int,
-    val timeRange: String,
-    val subject: String,
-    val teacherName: String,
-    val room: String
-)
 
 data class SchoolClass(
     val id: String,
-    val name: String,
-    val grade: String,
-    val section: String,
-    val roomNumber: String,
-    val classTeacherId: String,
-    val classTeacherName: String,
-    val studentCount: Int,
-    val capacity: Int = 35,
-    val schedule: List<ClassScheduleItem> = emptyList()
+    val name: String, // e.g. "Nursery", "KG", "Class 1" ... "Class 10"
+    val section: String = "A",
+    val classTeacher: String = "Designated Teacher",
+    val order: Int = 0
 )
 
-data class AttendanceRecord(
+data class Subject(
     val id: String,
-    val date: String,
     val classId: String,
-    val studentId: String,
-    val status: AttendanceStatus,
-    val note: String = ""
+    val name: String,
+    val code: String,
+    val fullMarks: Double = 100.0, // 100 or 50
+    val passMarks: Double = 33.0,  // 33 for 100, 17 for 50
+    val type: SubjectType = SubjectType.MANDATORY
 )
 
-data class GradeRecord(
+data class Student(
     val id: String,
+    val uniqueId: String, // e.g. "OAK-2026-001"
+    val rollNo: String,
+    val name: String,
+    val classId: String,
+    val className: String,
+    val birthRegNo: String,
+    val fatherName: String,
+    val motherName: String,
+    val guardianPhone: String,
+    val address: String,
+    val avatarColorHex: Long = 0xFF1E3A8A
+)
+
+data class ExamRoutineSlot(
+    val id: String,
+    val classId: String,
+    val className: String,
+    val examCategory: ExamCategory,
+    val year: Int,
+    val subjectName: String,
+    val examDate: String,
+    val examDay: String,
+    val examTime: String,
+    val room: String = "Hall A"
+)
+
+data class StudentMark(
+    val id: String,
+    val uniqueId: String,
     val studentId: String,
     val studentName: String,
-    val grade: String,
-    val subject: String,
-    val examName: String,
+    val fatherName: String,
+    val classId: String,
+    val className: String,
+    val rollNo: String,
+    val examCategory: ExamCategory,
+    val year: Int,
+    val subjectId: String,
+    val subjectName: String,
     val marksObtained: Double,
-    val maxMarks: Double,
-    val gradeLetter: String,
-    val date: String,
-    val remarks: String = ""
+    val fullMarks: Double,
+    val passMarks: Double,
+    val isMandatory: Boolean,
+    val letterGrade: String,
+    val gradePoint: Double
 ) {
-    val percentage: Double get() = if (maxMarks > 0) (marksObtained / maxMarks) * 100 else 0.0
+    val isPassed: Boolean get() = marksObtained >= passMarks
 }
 
-data class Notice(
-    val id: String,
-    val title: String,
-    val content: String,
-    val date: String,
-    val priority: NoticePriority,
-    val category: String,
-    val targetAudience: String,
-    val author: String = "Administration"
+data class StudentMarksheet(
+    val student: Student,
+    val examCategory: ExamCategory,
+    val year: Int,
+    val subjectMarks: List<StudentMark>,
+    val totalMarks: Double,
+    val totalFullMarks: Double,
+    val gpa: Double,
+    val letterGrade: String,
+    val isPassed: Boolean,
+    val failedMandatorySubjects: List<String>
 )
 
-data class FeeRecord(
-    val id: String,
-    val studentId: String,
-    val studentName: String,
-    val grade: String,
-    val term: String,
-    val totalAmount: Double,
-    val paidAmount: Double,
-    val status: FeeStatus,
-    val dueDate: String
-) {
-    val remainingAmount: Double get() = (totalAmount - paidAmount).coerceAtLeast(0.0)
-}
+data class ClassMeritRank(
+    val position: Int,
+    val student: Student,
+    val totalMarks: Double,
+    val gpa: Double,
+    val isPassed: Boolean,
+    val statusText: String
+)

@@ -1,70 +1,49 @@
-# Oakridge Academy - School Management App
+# স্কুল ম্যানেজমেন্ট সফটওয়্যার (School Management System)
 
-A modern, comprehensive Android application built with **Jetpack Compose**, **Kotlin Coroutines & Flow**, and **Material Design 3** to manage school operations, student rosters, academic schedules, daily attendance, grading, and administrative announcements.
+আপনার দেওয়া রিকোয়ারমেন্ট স্পেসিফিকেশন (SRS) অনুযায়ী সম্পূর্ণ সিস্টেমটি ৪টি মূল মডিউলে ডেভেলপ করা হয়েছে:
 
-## Features
+---
 
-### 1. Dashboard & School Overview
-- **Visual Campus Hero Banner**: High-resolution educational campus presentation.
-- **Real-Time School Metrics**:
-  - Total Enrolled Students
-  - Faculty & Teachers Count
-  - Active Classrooms & Grade Sections
-  - Today's Overall Attendance Percentage
-- **Quick Action Bar**:
-  - One-tap navigation to take class attendance
-  - Quick student enrollment
-  - School bulletin announcement publisher
-- **Visual Attendance Progress Bar**: Instant ratio of Present, Absent, and Late students today.
-- **Today's Class Schedule Preview**: Daily period timings, subjects, and classroom numbers.
+## ১. শ্রেণি এবং সাবজেক্ট ম্যানেজমেন্ট (Class & Subject Management)
+* **শ্রেণি ব্যবস্থাপনা (Class Management):**
+  * ডিফল্ট হিসেবে নার্সারি থেকে দশম শ্রেণি (Nursery, KG, Class 1 থেকে Class 10) পর্যন্ত তালিকা অন্তর্ভুক্ত।
+  * নতুন শ্রেণি যুক্ত করা এবং সেকশন কনফিগারেশনের সুবিধা।
+* **সাবজেক্ট ব্যবস্থাপনা (Subject Management):**
+  * নির্দিষ্ট শ্রেণিতে বিষয় (Subject Name & Code) যুক্ত করার সুবিধা।
+  * **পাস মার্কিং স্কেল:** ১০০ নম্বর স্কেল (পাস মার্ক ৩৩) অথবা ৫০ নম্বর স্কেল (পাস মার্ক ১৭/২০) নির্ধারণের অপশন।
+  * **বিষয়ের ধরন (Mandatory / Optional):** ড্রপডাউনের মাধ্যমে বিষয়টিকে 'আবশ্যিক' নাকি 'ঐচ্ছিক' তা নির্ধারণের ব্যবস্থা।
+  * **বিশেষ বিজনেস লজিক:** কোনো বিষয় আবশ্যিক হলে শিক্ষার্থীকে অবশ্যই সেই বিষয়ে পাশ করতে হবে। চূড়ান্ত গ্রেড ও ফলাফল গণনার ক্ষেত্রে শুধুমাত্র আবশ্যিক বিষয়গুলোর নম্বর প্রধান ভিত্তি হিসেবে গণ্য হবে (ঐচ্ছিক বিষয়ের ক্ষেত্রে অতিরিক্ত পয়েন্ট মূল জিপিএ-তে যুক্ত হয়)।
 
-### 2. Student Directory & Profile Management
-- **Search & Filters**: Instant live filtering across student names, roll numbers, and grade levels (Grade 9 through Grade 12).
-- **Student Roster Cards**: Shows student roll number, grade & section, attendance rate, and fee payment status.
-- **Detailed Student Profile**:
-  - Personal information, email, contact phone, gender, blood group, address
-  - Guardian / Emergency contact information with **one-tap direct dial** and **email composer**
-  - Complete examination and grade history for each student
-  - Option to remove or edit students
-- **Enroll New Student**: Dialog form with validation for student and parent details.
+---
 
-### 3. Daily Attendance Tracker
-- **Classroom Selector**: Switch between Grade 10-A, Grade 10-B, Grade 9-A, Grade 11-A, Grade 12-A, etc.
-- **Date Selector**: Real-time daily log with today's date.
-- **Live Attendance Summary**: Present, Absent, Late, and Attendance Rate percentage.
-- **Quick "Mark All Present"**: Sets all students in the selected class to Present with a single tap.
-- **Interactive Status Toggles**: Quickly set status per student to Present, Absent, Late, or Excused.
-- **Save Attendance**: Records session logs and dynamically recalculates student attendance percentages.
+## ২. স্টুডেন্ট ম্যানেজমেন্ট (Student Management)
+* **নতুন ছাত্র/ছাত্রী নিবন্ধন (New Student Entry):**
+  * **ব্যক্তিগত তথ্য:** ছবি/অবতার, পূর্ণ নাম, জন্ম নিবন্ধন নম্বর, পিতার নাম, মাতার নাম, যোগাযোগের ঠিকানা এবং অভিভাবকের ফোন নম্বর (এক ক্লিকে সরাসরি কল করার সুবিধা)।
+  * **একাডেমিক তথ্য:** শ্রেণি, ইউনিক আইডি (Unique ID, যেমন: STU-2026-001) এবং ক্লাস রোল।
+* **বাল্ক আপলোড ও ডাউনলোড (Bulk Upload & Export):**
+  * এক্সেল / সিএসভি (CSV) ফাইলের মাধ্যমে একসঙ্গে একাধিক শিক্ষার্থী আপলোড করার ফিচার এবং স্যাম্পল টেমপ্লেট।
+  * শ্রেণিভিত্তিক শিক্ষার্থীদের ডাটা ডাউনলোড ও এক্সপোর্ট (CSV/Excel format) সুবিধা।
+* **স্মার্ট সার্চ ও ফিল্টার (Search & Filter):**
+  * ইউনিক আইডি, নাম, রোল বা অভিভাবকের ফোন নম্বর দিয়ে দ্রুত শিক্ষার্থী খুঁজে পাওয়ার অপ্টিমাইজড সার্চ ফিল্টার।
 
-### 4. Classrooms, Weekly Timetables & Faculty Directory
-- **Classrooms Tab**:
-  - Room numbers, assigned homeroom teachers, student capacity utilization
-  - Expandable **Weekly Timetable** detailing Periods 1–4 with subject, teacher, and room
-- **Faculty Directory Tab**:
-  - Teacher profiles with department, highest qualifications, and years of experience
-  - Assigned subjects and homeroom classes
-  - Direct communication actions (Call and Email faculty members)
-  - **Add Faculty Member**: Full dialog form to register new teachers
+---
 
-### 5. School Bulletin, Tuition Fees & Grade Book
-- **School Announcements (Notices)**:
-  - Filter notices by category: Academic, Events, Sports, Administrative
-  - Priority badges: Urgent, Normal, Info
-  - Audience targeting (All Students, Parents, Faculty)
-  - Post new announcements with title, category, priority, and audience
-- **Tuition Fees & Invoicing**:
-  - Total billing, collection totals, and outstanding dues
-  - Student invoice records with status pills (Paid, Pending, Partial, Overdue)
-  - Quick "Mark Paid" action button
-- **Academic Grade Book**:
-  - Exam results with marks obtained, max marks, percentage, and automatic letter grade calculation (A+, A, B+, B, C, F)
-  - Enter new grades per student and subject
+## ৩. পরীক্ষা ব্যবস্থাপনা (Exam Management)
+* **পরীক্ষার রুটিন অটো-জেনারেটর (Exam Routine Auto-Generator):**
+  * শিক্ষার্থীর ডাটাবেজ ও শ্রেণির সাবজেক্ট তালিকা থেকে স্বয়ংক্রিয়ভাবে পরীক্ষার সময়সূচী ও রুটিন তৈরি হয়।
+  * **হেডার ও ফুটার:** প্রতিষ্ঠানের লোগো, ঠিকানা, পরীক্ষার ক্যাটাগরি (প্রথম সাময়িক / দ্বিতীয় সাময়িক / বার্ষিক), সাল, শিক্ষার্থীর নাম, পিতার নাম ও শ্রেণি। নিচে দিকনির্দেশনা (Instructions) এবং প্রধান শিক্ষকের ডিজিটাল সিগনেচার প্রদর্শিত হয়।
+  * **লেআউট:** একটি A4 সাইজের পেপারে প্রিন্ট উপযোগী করে ৪টি রুটিন স্লিপ সেট করার ব্যবস্থা।
+* **নম্বর এন্ট্রি সিস্টেম (Marks Entry System with Verification):**
+  * **যাচাইকরণ প্রক্রিয়া:** ইউনিক আইডি ইনপুট দিয়ে **'Verify'** বাটনে ক্লিক করলে শিক্ষার্থীর নাম, পিতার নাম, শ্রেণি এবং রোল স্বয়ংক্রিয়ভাবে (Auto-fill) ভেরিফাই হয়ে লক হয়ে যায় (ম্যানুয়ালি এডিট রোধ করা হয়েছে)।
+  * **এন্ট্রি ফিল্ড:** বিষয় ড্রপডাউন (যা সাবজেক্ট ম্যানেজমেন্ট থেকে স্বয়ংক্রিয়ভাবে ১০০ বা ৫০ স্কেল ও গ্রেডিং রুল নিয়ে আসে), পরীক্ষার ক্যাটাগরি, সাল এবং প্রাপ্ত নম্বর। নম্বর দেওয়ার সাথে সাথে লাইভ গ্রেড প্রিভিউ দেখা যায়।
 
-## Technical Stack
-- **Language**: Kotlin 2.2
-- **UI Framework**: Jetpack Compose (Material 3)
-- **Architecture**: MVVM with Repository Pattern
-- **State Management**: Kotlin Coroutines `StateFlow` and `combine`
-- **Build System**: Gradle 9.3.1 with Android Gradle Plugin (AGP) 9.1.1
-- **Target SDK**: Android 36 (Android 16 / Vanilla Ice Cream)
-- **Launcher Icon**: Custom adaptive Material You launcher icon with gold and navy academy crest
+---
+
+## ৪. রেজাল্ট সিস্টেম (Result System)
+* **ইন্ডিভিজুয়াল রেজাল্ট / মার্কশীট (Individual Marksheet):**
+  * পরীক্ষার ক্যাটাগরি, ইউনিক আইডি এবং সাল দিয়ে একক শিক্ষার্থীর পূর্ণাঙ্গ ট্রান্সক্রিপ্ট দেখা যায়।
+  * **আকর্ষণীয় A4 সাইজের মার্কশীট:** ব্যাকগ্রাউন্ডের ঠিক মাঝখানে প্রতিষ্ঠানের লোগোর একটি মার্জিত **জলছাপ (Watermark)** রয়েছে।
+  * বিষয়ভিত্তিক পূর্ণমান, পাস মার্ক, প্রাপ্ত নম্বর, লেটার গ্রেড, গ্রেড পয়েন্ট (GPA), মোট নম্বর এবং রেজাল্ট স্ট্যাটাস (Passed / Failed based on mandatory subjects rule)।
+* **শ্রেণিভিত্তিক মেধাতালিকা ও ফলাফল (Class-wise Merit List):**
+  * শ্রেণি, পরীক্ষার ক্যাটাগরি ও সাল সিলেক্ট করলেই স্বয়ংক্রিয়ভাবে পুরো শ্রেণির শিক্ষার্থীদের মেধাক্রম (1st, 2nd, 3rd, 4th...) সহ মেধাতালিকা টেবিল প্রদর্শিত হয়।
+  * উত্তীর্ণ শিক্ষার্থীদের প্রাপ্ত মোট নম্বর ও জিপিএ অনুযায়ী প্রথম, দ্বিতীয়, তৃতীয় স্থান নির্ধারণ করা হয়।

@@ -1,54 +1,87 @@
 package com.example.data.repository
 
-import com.example.data.model.AttendanceRecord
-import com.example.data.model.AttendanceStatus
-import com.example.data.model.ClassScheduleItem
-import com.example.data.model.FeeRecord
-import com.example.data.model.FeeStatus
-import com.example.data.model.GradeRecord
-import com.example.data.model.Notice
-import com.example.data.model.NoticePriority
+import com.example.data.model.ClassMeritRank
+import com.example.data.model.ExamCategory
+import com.example.data.model.ExamRoutineSlot
 import com.example.data.model.SchoolClass
 import com.example.data.model.Student
-import com.example.data.model.Teacher
+import com.example.data.model.StudentMark
+import com.example.data.model.StudentMarksheet
+import com.example.data.model.Subject
+import com.example.data.model.SubjectType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.UUID
 
 class SchoolRepository private constructor() {
 
-    private val todayDateString: String
-        get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    private val _classes = MutableStateFlow<List<SchoolClass>>(initialClasses())
+    val classes: StateFlow<List<SchoolClass>> = _classes.asStateFlow()
+
+    private val _subjects = MutableStateFlow<List<Subject>>(initialSubjects())
+    val subjects: StateFlow<List<Subject>> = _subjects.asStateFlow()
 
     private val _students = MutableStateFlow<List<Student>>(initialStudents())
     val students: StateFlow<List<Student>> = _students.asStateFlow()
 
-    private val _teachers = MutableStateFlow<List<Teacher>>(initialTeachers())
-    val teachers: StateFlow<List<Teacher>> = _teachers.asStateFlow()
+    private val _routines = MutableStateFlow<List<ExamRoutineSlot>>(initialRoutines())
+    val routines: StateFlow<List<ExamRoutineSlot>> = _routines.asStateFlow()
 
-    private val _classes = MutableStateFlow<List<SchoolClass>>(initialClasses())
-    val classes: StateFlow<List<SchoolClass>> = _classes.asStateFlow()
+    private val _marks = MutableStateFlow<List<StudentMark>>(initialMarks())
+    val marks: StateFlow<List<StudentMark>> = _marks.asStateFlow()
 
-    private val _attendance = MutableStateFlow<List<AttendanceRecord>>(initialAttendance())
-    val attendance: StateFlow<List<AttendanceRecord>> = _attendance.asStateFlow()
+    // --- 1. Class & Subject Management ---
+    fun addClass(name: String, section: String = "A") {
+        val newClass = SchoolClass(
+            id = "cls_${UUID.randomUUID().toString().take(6)}",
+            name = name,
+            section = section,
+            order = _classes.value.size + 1
+        )
+        _classes.value = _classes.value + newClass
+    }
 
-    private val _grades = MutableStateFlow<List<GradeRecord>>(initialGrades())
-    val grades: StateFlow<List<GradeRecord>> = _grades.asStateFlow()
+    fun updateClass(schoolClass: SchoolClass) {
+        _classes.value = _classes.value.map { if (it.id == schoolClass.id) schoolClass else it }
+    }
 
-    private val _notices = MutableStateFlow<List<Notice>>(initialNotices())
-    val notices: StateFlow<List<Notice>> = _notices.asStateFlow()
+    fun deleteClass(classId: String) {
+        _classes.value = _classes.value.filterNot { it.id == classId }
+        _subjects.value = _subjects.value.filterNot { it.classId == classId }
+    }
 
-    private val _fees = MutableStateFlow<List<FeeRecord>>(initialFees())
-    val fees: StateFlow<List<FeeRecord>> = _fees.asStateFlow()
+    fun addSubject(
+        classId: String,
+        name: String,
+        code: String,
+        fullMarks: Double,
+        passMarks: Double,
+        type: SubjectType
+    ) {
+        val newSubject = Subject(
+            id = "sub_${UUID.randomUUID().toString().take(6)}",
+            classId = classId,
+            name = name,
+            code = code,
+            fullMarks = fullMarks,
+            passMarks = passMarks,
+            type = type
+        )
+        _subjects.value = _subjects.value + newSubject
+    }
 
+    fun updateSubject(subject: Subject) {
+        _subjects.value = _subjects.value.map { if (it.id == subject.id) subject else it }
+    }
+
+    fun deleteSubject(subjectId: String) {
+        _subjects.value = _subjects.value.filterNot { it.id == subjectId }
+    }
+
+    // --- 2. Student Management ---
     fun addStudent(student: Student) {
         _students.value = listOf(student) + _students.value
-        // Update class student count
-        updateClassCounts()
     }
 
     fun updateStudent(student: Student) {
@@ -57,88 +90,244 @@ class SchoolRepository private constructor() {
 
     fun deleteStudent(studentId: String) {
         _students.value = _students.value.filterNot { it.id == studentId }
-        _attendance.value = _attendance.value.filterNot { it.studentId == studentId }
-        _grades.value = _grades.value.filterNot { it.studentId == studentId }
-        _fees.value = _fees.value.filterNot { it.studentId == studentId }
-        updateClassCounts()
+        _marks.value = _marks.value.filterNot { it.studentId == studentId }
     }
 
-    fun addTeacher(teacher: Teacher) {
-        _teachers.value = listOf(teacher) + _teachers.value
+    fun verifyStudentByUniqueId(uniqueId: String): Student? {
+        val clean = uniqueId.trim()
+        return _students.value.find { it.uniqueId.equals(clean, ignoreCase = true) }
     }
 
-    fun updateTeacher(teacher: Teacher) {
-        _teachers.value = _teachers.value.map { if (it.id == teacher.id) teacher else it }
-    }
+    fun bulkImportStudentsCsv(csvText: String): Int {
+        val lines = csvText.lines().filter { it.isNotBlank() }
+        var count = 0
+        val newStudents = mutableListOf<Student>()
+        val startIdx = if (lines.firstOrNull()?.contains("UniqueId", ignoreCase = true) == true) 1 else 0
 
-    fun deleteTeacher(teacherId: String) {
-        _teachers.value = _teachers.value.filterNot { it.id == teacherId }
-    }
+        for (i in startIdx until lines.size) {
+            val parts = lines[i].split(",").map { it.trim() }
+            if (parts.size >= 4) {
+                val uId = parts.getOrNull(0)?.ifBlank { "STU-${(1000..9999).random()}" } ?: "STU-000"
+                val roll = parts.getOrNull(1)?.ifBlank { "01" } ?: "01"
+                val name = parts.getOrNull(2) ?: "Unknown"
+                val className = parts.getOrNull(3) ?: "Class 10"
+                val targetClass = _classes.value.find { it.name.equals(className, ignoreCase = true) }
+                    ?: _classes.value.firstOrNull()
+                val birthReg = parts.getOrNull(4) ?: "20101234567890"
+                val father = parts.getOrNull(5) ?: "Guardian Father"
+                val mother = parts.getOrNull(6) ?: "Guardian Mother"
+                val phone = parts.getOrNull(7) ?: "+880 1700-000000"
+                val address = parts.getOrNull(8) ?: "Dhaka, Bangladesh"
 
-    fun addClass(newClass: SchoolClass) {
-        _classes.value = _classes.value + newClass
-    }
-
-    fun saveAttendance(date: String, classId: String, statusMap: Map<String, AttendanceStatus>) {
-        val existingFiltered = _attendance.value.filterNot { it.date == date && it.classId == classId }
-        val newRecords = statusMap.map { (studentId, status) ->
-            AttendanceRecord(
-                id = UUID.randomUUID().toString(),
-                date = date,
-                classId = classId,
-                studentId = studentId,
-                status = status
-            )
-        }
-        _attendance.value = existingFiltered + newRecords
-
-        // Update student attendance percentage dynamically
-        recalculateAttendancePercentages()
-    }
-
-    fun addGrade(record: GradeRecord) {
-        _grades.value = listOf(record) + _grades.value
-    }
-
-    fun deleteGrade(gradeId: String) {
-        _grades.value = _grades.value.filterNot { it.id == gradeId }
-    }
-
-    fun addNotice(notice: Notice) {
-        _notices.value = listOf(notice) + _notices.value
-    }
-
-    fun deleteNotice(noticeId: String) {
-        _notices.value = _notices.value.filterNot { it.id == noticeId }
-    }
-
-    fun updateFeeStatus(feeId: String, status: FeeStatus, paidAmount: Double) {
-        _fees.value = _fees.value.map { fee ->
-            if (fee.id == feeId) {
-                fee.copy(status = status, paidAmount = paidAmount)
-            } else fee
-        }
-    }
-
-    private fun updateClassCounts() {
-        _classes.value = _classes.value.map { cls ->
-            val count = _students.value.count { it.grade == cls.grade && it.section == cls.section }
-            cls.copy(studentCount = count)
-        }
-    }
-
-    private fun recalculateAttendancePercentages() {
-        val allRecords = _attendance.value
-        _students.value = _students.value.map { student ->
-            val studentRecords = allRecords.filter { it.studentId == student.id }
-            if (studentRecords.isNotEmpty()) {
-                val presentCount = studentRecords.count { it.status == AttendanceStatus.PRESENT || it.status == AttendanceStatus.LATE }
-                val pct = (presentCount * 100) / studentRecords.size
-                student.copy(attendancePercentage = pct)
-            } else {
-                student
+                val student = Student(
+                    id = "std_${UUID.randomUUID().toString().take(6)}",
+                    uniqueId = uId,
+                    rollNo = roll,
+                    name = name,
+                    classId = targetClass?.id ?: "cls_10",
+                    className = targetClass?.name ?: className,
+                    birthRegNo = birthReg,
+                    fatherName = father,
+                    motherName = mother,
+                    guardianPhone = phone,
+                    address = address
+                )
+                newStudents.add(student)
+                count++
             }
         }
+        if (newStudents.isNotEmpty()) {
+            _students.value = newStudents + _students.value
+        }
+        return count
+    }
+
+    fun exportStudentsCsv(classId: String?): String {
+        val list = if (classId == null || classId == "All") _students.value else _students.value.filter { it.classId == classId }
+        val sb = StringBuilder()
+        sb.append("UniqueId,Roll,Name,Class,BirthRegNo,FatherName,MotherName,Phone,Address\n")
+        list.forEach { s ->
+            sb.append("${s.uniqueId},${s.rollNo},\"${s.name}\",\"${s.className}\",\"${s.birthRegNo}\",\"${s.fatherName}\",\"${s.motherName}\",\"${s.guardianPhone}\",\"${s.address}\"\n")
+        }
+        return sb.toString()
+    }
+
+    // --- 3. Exam Routine Auto-Generator ---
+    fun generateRoutineForClass(classId: String, examCategory: ExamCategory, year: Int) {
+        val cls = _classes.value.find { it.id == classId } ?: return
+        val classSubs = _subjects.value.filter { it.classId == classId }
+        val existingFiltered = _routines.value.filterNot { it.classId == classId && it.examCategory == examCategory && it.year == year }
+
+        val startDates = listOf("10/12/$year", "12/12/$year", "14/12/$year", "16/12/$year", "18/12/$year", "20/12/$year", "22/12/$year")
+        val days = listOf("Sunday", "Tuesday", "Thursday", "Saturday", "Monday", "Wednesday", "Friday")
+
+        val generated = classSubs.mapIndexed { index, sub ->
+            val dateStr = startDates.getOrElse(index) { "2${index}/12/$year" }
+            val dayStr = days.getOrElse(index % days.size) { "Sunday" }
+            ExamRoutineSlot(
+                id = UUID.randomUUID().toString(),
+                classId = classId,
+                className = cls.name,
+                examCategory = examCategory,
+                year = year,
+                subjectName = sub.name,
+                examDate = dateStr,
+                examDay = dayStr,
+                examTime = "10:00 AM - 01:00 PM",
+                room = "Hall ${((index % 3) + 1)}"
+            )
+        }
+        _routines.value = existingFiltered + generated
+    }
+
+    // --- 3. Marks Entry & Auto-Grade Calculation ---
+    fun saveMark(
+        uniqueId: String,
+        subjectId: String,
+        examCategory: ExamCategory,
+        year: Int,
+        marksObtained: Double
+    ): StudentMark? {
+        val student = verifyStudentByUniqueId(uniqueId) ?: return null
+        val subject = _subjects.value.find { it.id == subjectId } ?: return null
+
+        val (letter, gp) = calculateGrade(marksObtained, subject.fullMarks)
+        val markRecord = StudentMark(
+            id = UUID.randomUUID().toString(),
+            uniqueId = student.uniqueId,
+            studentId = student.id,
+            studentName = student.name,
+            fatherName = student.fatherName,
+            classId = student.classId,
+            className = student.className,
+            rollNo = student.rollNo,
+            examCategory = examCategory,
+            year = year,
+            subjectId = subject.id,
+            subjectName = subject.name,
+            marksObtained = marksObtained,
+            fullMarks = subject.fullMarks,
+            passMarks = subject.passMarks,
+            isMandatory = subject.type == SubjectType.MANDATORY,
+            letterGrade = letter,
+            gradePoint = gp
+        )
+
+        // Replace if already exists for this student, subject, category & year
+        val filtered = _marks.value.filterNot {
+            it.studentId == student.id && it.subjectId == subject.id && it.examCategory == examCategory && it.year == year
+        }
+        _marks.value = listOf(markRecord) + filtered
+        return markRecord
+    }
+
+    private fun calculateGrade(obtained: Double, fullMarks: Double): Pair<String, Double> {
+        val pct = if (fullMarks > 0) (obtained / fullMarks) * 100.0 else 0.0
+        return when {
+            pct >= 80.0 -> "A+" to 5.0
+            pct >= 70.0 -> "A" to 4.0
+            pct >= 60.0 -> "A-" to 3.5
+            pct >= 50.0 -> "B" to 3.0
+            pct >= 40.0 -> "C" to 2.0
+            pct >= 33.0 -> "D" to 1.0
+            else -> "F" to 0.0
+        }
+    }
+
+    // --- 4. Result System & Business Logic ---
+    fun getStudentMarksheet(uniqueId: String, examCategory: ExamCategory, year: Int): StudentMarksheet? {
+        val student = verifyStudentByUniqueId(uniqueId) ?: return null
+        val studentMarks = _marks.value.filter {
+            it.studentId == student.id && it.examCategory == examCategory && it.year == year
+        }
+
+        val failedMandatory = studentMarks
+            .filter { it.isMandatory && !it.isPassed }
+            .map { it.subjectName }
+
+        val isPassed = failedMandatory.isEmpty() && studentMarks.isNotEmpty()
+
+        val totalMarks = studentMarks.sumOf { it.marksObtained }
+        val totalFullMarks = studentMarks.sumOf { it.fullMarks }
+
+        // Business Logic: Mandatory subjects are primary basis for final grade & GPA
+        val mandatoryMarks = studentMarks.filter { it.isMandatory }
+        val gpa = if (!isPassed || mandatoryMarks.isEmpty()) {
+            0.0
+        } else {
+            val avgGp = mandatoryMarks.map { it.gradePoint }.average()
+            // Optional subject bonus: points above 2.0 add slightly to GPA
+            val optionalMarks = studentMarks.filter { !it.isMandatory }
+            val optionalBonus = optionalMarks.sumOf { (it.gradePoint - 2.0).coerceAtLeast(0.0) } / mandatoryMarks.size
+            (avgGp + optionalBonus).coerceAtMost(5.0)
+        }
+
+        val overallGrade = if (!isPassed) "F" else when {
+            gpa >= 5.0 -> "A+"
+            gpa >= 4.0 -> "A"
+            gpa >= 3.5 -> "A-"
+            gpa >= 3.0 -> "B"
+            gpa >= 2.0 -> "C"
+            gpa >= 1.0 -> "D"
+            else -> "F"
+        }
+
+        return StudentMarksheet(
+            student = student,
+            examCategory = examCategory,
+            year = year,
+            subjectMarks = studentMarks,
+            totalMarks = totalMarks,
+            totalFullMarks = totalFullMarks,
+            gpa = Math.round(gpa * 100.0) / 100.0,
+            letterGrade = overallGrade,
+            isPassed = isPassed,
+            failedMandatorySubjects = failedMandatory
+        )
+    }
+
+    fun getClassMeritList(classId: String, examCategory: ExamCategory, year: Int): List<ClassMeritRank> {
+        val classStudents = _students.value.filter { it.classId == classId }
+        val marksheets = classStudents.mapNotNull { student ->
+            getStudentMarksheet(student.uniqueId, examCategory, year)
+        }
+
+        // Passed students sorted by total marks and GPA descending, then failed students
+        val passed = marksheets.filter { it.isPassed }.sortedWith(
+            compareByDescending<StudentMarksheet> { it.totalMarks }.thenByDescending { it.gpa }
+        )
+        val failed = marksheets.filter { !it.isPassed }.sortedByDescending { it.totalMarks }
+
+        var rank = 1
+        val rankedList = mutableListOf<ClassMeritRank>()
+        passed.forEach { ms ->
+            rankedList.add(
+                ClassMeritRank(
+                    position = rank++,
+                    student = ms.student,
+                    totalMarks = ms.totalMarks,
+                    gpa = ms.gpa,
+                    isPassed = true,
+                    statusText = "Passed (উত্তীর্ণ)"
+                )
+            )
+        }
+        failed.forEach { ms ->
+            val reason = if (ms.failedMandatorySubjects.isNotEmpty()) {
+                "Failed in ${ms.failedMandatorySubjects.joinToString(", ")}"
+            } else "Failed"
+            rankedList.add(
+                ClassMeritRank(
+                    position = rank++,
+                    student = ms.student,
+                    totalMarks = ms.totalMarks,
+                    gpa = 0.0,
+                    isPassed = false,
+                    statusText = reason
+                )
+            )
+        }
+        return rankedList
     }
 
     companion object {
@@ -151,363 +340,164 @@ class SchoolRepository private constructor() {
             }
         }
 
+        private fun initialClasses(): List<SchoolClass> {
+            val names = listOf(
+                "Nursery", "KG", "Class 1", "Class 2", "Class 3",
+                "Class 4", "Class 5", "Class 6", "Class 7", "Class 8",
+                "Class 9", "Class 10"
+            )
+            return names.mapIndexed { idx, name ->
+                SchoolClass(
+                    id = "cls_${idx + 1}",
+                    name = name,
+                    section = "A",
+                    classTeacher = "Teacher ${idx + 1}",
+                    order = idx + 1
+                )
+            }
+        }
+
+        private fun initialSubjects(): List<Subject> {
+            // Default subjects for Class 10 (cls_12)
+            val class10Id = "cls_12" // Class 10
+            return listOf(
+                Subject("sub_10_1", class10Id, "Bangla (বাংলা)", "BAN-101", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_10_2", class10Id, "English (ইংরেজি)", "ENG-102", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_10_3", class10Id, "Mathematics (গণিত)", "MAT-103", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_10_4", class10Id, "General Science (বিজ্ঞান)", "SCI-104", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_10_5", class10Id, "Social Studies (বাংলাদেশ ও বিশ্বপরিচয়)", "BGS-105", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_10_6", class10Id, "ICT (তথ্য ও যোগাযোগ প্রযুক্তি)", "ICT-106", 50.0, 17.0, SubjectType.MANDATORY),
+                Subject("sub_10_7", class10Id, "Higher Math (উচ্চতর গণিত)", "HMT-107", 100.0, 33.0, SubjectType.OPTIONAL),
+                Subject("sub_10_8", class10Id, "Agriculture Studies (কৃষি শিক্ষা)", "AGR-108", 100.0, 33.0, SubjectType.OPTIONAL),
+
+                // Class 9 (cls_11)
+                Subject("sub_9_1", "cls_11", "Bangla (বাংলা)", "BAN-901", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_9_2", "cls_11", "English (ইংরেজি)", "ENG-902", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_9_3", "cls_11", "Mathematics (গণিত)", "MAT-903", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_9_4", "cls_11", "General Science (বিজ্ঞান)", "SCI-904", 100.0, 33.0, SubjectType.MANDATORY),
+
+                // Class 8 (cls_10)
+                Subject("sub_8_1", "cls_10", "Bangla (বাংলা)", "BAN-801", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_8_2", "cls_10", "English (ইংরেজি)", "ENG-802", 100.0, 33.0, SubjectType.MANDATORY),
+                Subject("sub_8_3", "cls_10", "Mathematics (গণিত)", "MAT-803", 100.0, 33.0, SubjectType.MANDATORY)
+            )
+        }
+
         private fun initialStudents(): List<Student> {
+            val class10Id = "cls_12" // Class 10
             return listOf(
                 Student(
-                    id = "std_1",
-                    rollNo = "101",
-                    firstName = "Liam",
-                    lastName = "Harper",
-                    grade = "Grade 10",
-                    section = "A",
-                    gender = "Male",
-                    email = "liam.harper@student.oakridge.edu",
-                    phone = "+1 (555) 234-5678",
-                    parentName = "Robert Harper",
-                    parentPhone = "+1 (555) 345-6789",
-                    parentEmail = "r.harper@gmail.com",
-                    bloodGroup = "O+",
-                    attendancePercentage = 96,
-                    feeStatus = FeeStatus.PAID,
+                    id = "std_101",
+                    uniqueId = "STU-2026-001",
+                    rollNo = "01",
+                    name = "Tanzim Hasan (তানজিম হাসান)",
+                    classId = class10Id,
+                    className = "Class 10",
+                    birthRegNo = "20092692518001234",
+                    fatherName = "Md. Rafiqul Islam",
+                    motherName = "Nazma Begum",
+                    guardianPhone = "+880 1711-234567",
+                    address = "House 12, Road 4, Dhanmondi, Dhaka",
                     avatarColorHex = 0xFF1E3A8A
                 ),
                 Student(
-                    id = "std_2",
-                    rollNo = "102",
-                    firstName = "Sophia",
-                    lastName = "Chen",
-                    grade = "Grade 10",
-                    section = "A",
-                    gender = "Female",
-                    email = "sophia.chen@student.oakridge.edu",
-                    phone = "+1 (555) 234-5679",
-                    parentName = "Mei Chen",
-                    parentPhone = "+1 (555) 345-6790",
-                    parentEmail = "mei.chen@gmail.com",
-                    bloodGroup = "A+",
-                    attendancePercentage = 98,
-                    feeStatus = FeeStatus.PAID,
+                    id = "std_102",
+                    uniqueId = "STU-2026-002",
+                    rollNo = "02",
+                    name = "Sadia Afrin (সাদিয়া আফরিন)",
+                    classId = class10Id,
+                    className = "Class 10",
+                    birthRegNo = "20092692518001235",
+                    fatherName = "Anisur Rahman",
+                    motherName = "Shahana Parvin",
+                    guardianPhone = "+880 1819-345678",
+                    address = "Plot 24, Sector 7, Uttara, Dhaka",
                     avatarColorHex = 0xFF0D9488
                 ),
                 Student(
-                    id = "std_3",
-                    rollNo = "103",
-                    firstName = "Marcus",
-                    lastName = "Johnson",
-                    grade = "Grade 10",
-                    section = "A",
-                    gender = "Male",
-                    email = "marcus.j@student.oakridge.edu",
-                    phone = "+1 (555) 234-5680",
-                    parentName = "Tanya Johnson",
-                    parentPhone = "+1 (555) 345-6791",
-                    parentEmail = "tanya.j@gmail.com",
-                    bloodGroup = "B+",
-                    attendancePercentage = 91,
-                    feeStatus = FeeStatus.PENDING,
+                    id = "std_103",
+                    uniqueId = "STU-2026-003",
+                    rollNo = "03",
+                    name = "Abrar Fahim (আবরার ফাহিম)",
+                    classId = class10Id,
+                    className = "Class 10",
+                    birthRegNo = "20092692518001236",
+                    fatherName = "Kamrul Hassan",
+                    motherName = "Farhana Akter",
+                    guardianPhone = "+880 1912-456789",
+                    address = "Block C, Bashundhara R/A, Dhaka",
                     avatarColorHex = 0xFF7C3AED
                 ),
                 Student(
-                    id = "std_4",
-                    rollNo = "104",
-                    firstName = "Emma",
-                    lastName = "Davis",
-                    grade = "Grade 10",
-                    section = "B",
-                    gender = "Female",
-                    email = "emma.davis@student.oakridge.edu",
-                    phone = "+1 (555) 234-5681",
-                    parentName = "William Davis",
-                    parentPhone = "+1 (555) 345-6792",
-                    parentEmail = "wdavis@gmail.com",
-                    bloodGroup = "AB+",
-                    attendancePercentage = 94,
-                    feeStatus = FeeStatus.PAID,
+                    id = "std_104",
+                    uniqueId = "STU-2026-004",
+                    rollNo = "04",
+                    name = "Sumaiya Khanom (সুমাইয়া খানম)",
+                    classId = class10Id,
+                    className = "Class 10",
+                    birthRegNo = "20092692518001237",
+                    fatherName = "Mokhlesur Rahman",
+                    motherName = "Rina Akter",
+                    guardianPhone = "+880 1610-567890",
+                    address = "Mirpur 10, Dhaka",
                     avatarColorHex = 0xFFDB2777
                 ),
                 Student(
-                    id = "std_5",
-                    rollNo = "105",
-                    firstName = "Noah",
-                    lastName = "Miller",
-                    grade = "Grade 10",
-                    section = "B",
-                    gender = "Male",
-                    email = "noah.miller@student.oakridge.edu",
-                    phone = "+1 (555) 234-5682",
-                    parentName = "Sarah Miller",
-                    parentPhone = "+1 (555) 345-6793",
-                    parentEmail = "smiller@gmail.com",
-                    bloodGroup = "O-",
-                    attendancePercentage = 88,
-                    feeStatus = FeeStatus.OVERDUE,
-                    avatarColorHex = 0xFFD97706
-                ),
-                Student(
-                    id = "std_6",
-                    rollNo = "201",
-                    firstName = "Olivia",
-                    lastName = "Rodriguez",
-                    grade = "Grade 9",
-                    section = "A",
-                    gender = "Female",
-                    email = "olivia.r@student.oakridge.edu",
-                    phone = "+1 (555) 234-5683",
-                    parentName = "Carlos Rodriguez",
-                    parentPhone = "+1 (555) 345-6794",
-                    parentEmail = "crodriguez@gmail.com",
-                    bloodGroup = "A-",
-                    attendancePercentage = 95,
-                    feeStatus = FeeStatus.PAID,
-                    avatarColorHex = 0xFF2563EB
-                ),
-                Student(
-                    id = "std_7",
-                    rollNo = "202",
-                    firstName = "Ethan",
-                    lastName = "Taylor",
-                    grade = "Grade 9",
-                    section = "A",
-                    gender = "Male",
-                    email = "ethan.taylor@student.oakridge.edu",
-                    phone = "+1 (555) 234-5684",
-                    parentName = "Laura Taylor",
-                    parentPhone = "+1 (555) 345-6795",
-                    parentEmail = "laura.t@gmail.com",
-                    bloodGroup = "B-",
-                    attendancePercentage = 92,
-                    feeStatus = FeeStatus.PARTIAL,
-                    avatarColorHex = 0xFF059669
-                ),
-                Student(
-                    id = "std_8",
-                    rollNo = "301",
-                    firstName = "Aria",
-                    lastName = "Patel",
-                    grade = "Grade 11",
-                    section = "A",
-                    gender = "Female",
-                    email = "aria.patel@student.oakridge.edu",
-                    phone = "+1 (555) 234-5685",
-                    parentName = "Raj Patel",
-                    parentPhone = "+1 (555) 345-6796",
-                    parentEmail = "raj.patel@gmail.com",
-                    bloodGroup = "O+",
-                    attendancePercentage = 99,
-                    feeStatus = FeeStatus.PAID,
-                    avatarColorHex = 0xFF4F46E5
-                ),
-                Student(
-                    id = "std_9",
-                    rollNo = "302",
-                    firstName = "Lucas",
-                    lastName = "Wilson",
-                    grade = "Grade 11",
-                    section = "A",
-                    gender = "Male",
-                    email = "lucas.w@student.oakridge.edu",
-                    phone = "+1 (555) 234-5686",
-                    parentName = "David Wilson",
-                    parentPhone = "+1 (555) 345-6797",
-                    parentEmail = "dwilson@gmail.com",
-                    bloodGroup = "A+",
-                    attendancePercentage = 90,
-                    feeStatus = FeeStatus.PAID,
-                    avatarColorHex = 0xFF6366F1
-                ),
-                Student(
-                    id = "std_10",
-                    rollNo = "401",
-                    firstName = "Chloe",
-                    lastName = "Anderson",
-                    grade = "Grade 12",
-                    section = "A",
-                    gender = "Female",
-                    email = "chloe.a@student.oakridge.edu",
-                    phone = "+1 (555) 234-5687",
-                    parentName = "Elena Anderson",
-                    parentPhone = "+1 (555) 345-6798",
-                    parentEmail = "eanderson@gmail.com",
-                    bloodGroup = "AB-",
-                    attendancePercentage = 97,
-                    feeStatus = FeeStatus.PAID,
-                    avatarColorHex = 0xFF9333EA
-                )
-            )
-        }
-
-        private fun initialTeachers(): List<Teacher> {
-            return listOf(
-                Teacher(
-                    id = "tch_1",
-                    employeeId = "EMP-1001",
-                    name = "Dr. Eleanor Vance",
-                    department = "Mathematics",
-                    subjects = listOf("Algebra II", "Calculus", "Geometry"),
-                    assignedClass = "Grade 10-A",
-                    email = "eleanor.vance@oakridge.edu",
-                    phone = "+1 (555) 789-0101",
-                    qualification = "Ph.D. in Applied Mathematics",
-                    experienceYears = 12,
-                    avatarColorHex = 0xFF1E3A8A
-                ),
-                Teacher(
-                    id = "tch_2",
-                    employeeId = "EMP-1002",
-                    name = "Prof. Samuel Wright",
-                    department = "Science",
-                    subjects = listOf("Physics", "Chemistry"),
-                    assignedClass = "Grade 11-A",
-                    email = "samuel.wright@oakridge.edu",
-                    phone = "+1 (555) 789-0102",
-                    qualification = "M.Sc. in Physics, B.Ed.",
-                    experienceYears = 9,
-                    avatarColorHex = 0xFF0D9488
-                ),
-                Teacher(
-                    id = "tch_3",
-                    employeeId = "EMP-1003",
-                    name = "Ms. Grace Thompson",
-                    department = "English Literature",
-                    subjects = listOf("World Literature", "Creative Writing"),
-                    assignedClass = "Grade 9-A",
-                    email = "grace.t@oakridge.edu",
-                    phone = "+1 (555) 789-0103",
-                    qualification = "M.A. in English Literature",
-                    experienceYears = 7,
-                    avatarColorHex = 0xFF7C3AED
-                ),
-                Teacher(
-                    id = "tch_4",
-                    employeeId = "EMP-1004",
-                    name = "Mr. Daniel Martinez",
-                    department = "Computer Science",
-                    subjects = listOf("AP Computer Science", "Web Development"),
-                    assignedClass = "Grade 12-A",
-                    email = "daniel.m@oakridge.edu",
-                    phone = "+1 (555) 789-0104",
-                    qualification = "B.S. in Computer Science",
-                    experienceYears = 6,
-                    avatarColorHex = 0xFF059669
-                ),
-                Teacher(
-                    id = "tch_5",
-                    employeeId = "EMP-1005",
-                    name = "Mrs. Abigail Scott",
-                    department = "Social Studies",
-                    subjects = listOf("Modern World History", "Civics"),
-                    assignedClass = "Grade 10-B",
-                    email = "abigail.scott@oakridge.edu",
-                    phone = "+1 (555) 789-0105",
-                    qualification = "M.A. in History",
-                    experienceYears = 14,
+                    id = "std_105",
+                    uniqueId = "STU-2026-005",
+                    rollNo = "05",
+                    name = "Zubair Ahmed (জুবায়ের আহমেদ)",
+                    classId = class10Id,
+                    className = "Class 10",
+                    birthRegNo = "20092692518001238",
+                    fatherName = "Alamgir Hossain",
+                    motherName = "Parvin Begum",
+                    guardianPhone = "+880 1515-678901",
+                    address = "Mohammadpur, Dhaka",
                     avatarColorHex = 0xFFD97706
                 )
             )
         }
 
-        private fun initialClasses(): List<SchoolClass> {
-            val sampleSchedule = listOf(
-                ClassScheduleItem("Monday", 1, "08:30 - 09:20", "Mathematics", "Dr. Eleanor Vance", "Room 204"),
-                ClassScheduleItem("Monday", 2, "09:25 - 10:15", "Physics", "Prof. Samuel Wright", "Lab 2"),
-                ClassScheduleItem("Monday", 3, "10:30 - 11:20", "English Literature", "Ms. Grace Thompson", "Room 105"),
-                ClassScheduleItem("Monday", 4, "11:25 - 12:15", "Computer Science", "Mr. Daniel Martinez", "Comp Lab 1"),
-                ClassScheduleItem("Tuesday", 1, "08:30 - 09:20", "World History", "Mrs. Abigail Scott", "Room 302"),
-                ClassScheduleItem("Tuesday", 2, "09:25 - 10:15", "Mathematics", "Dr. Eleanor Vance", "Room 204"),
-                ClassScheduleItem("Wednesday", 1, "08:30 - 09:20", "Physics", "Prof. Samuel Wright", "Lab 2"),
-                ClassScheduleItem("Wednesday", 2, "09:25 - 10:15", "Physical Education", "Coach Miller", "Gymnasium")
-            )
-
+        private fun initialRoutines(): List<ExamRoutineSlot> {
+            val class10Id = "cls_12"
             return listOf(
-                SchoolClass("cls_10a", "Grade 10-A", "Grade 10", "A", "Room 204", "tch_1", "Dr. Eleanor Vance", 3, 30, sampleSchedule),
-                SchoolClass("cls_10b", "Grade 10-B", "Grade 10", "B", "Room 205", "tch_5", "Mrs. Abigail Scott", 2, 30, sampleSchedule),
-                SchoolClass("cls_9a", "Grade 9-A", "Grade 9", "A", "Room 101", "tch_3", "Ms. Grace Thompson", 2, 32, sampleSchedule),
-                SchoolClass("cls_11a", "Grade 11-A", "Grade 11", "A", "Room 301", "tch_2", "Prof. Samuel Wright", 2, 28, sampleSchedule),
-                SchoolClass("cls_12a", "Grade 12-A", "Grade 12", "A", "Room 401", "tch_4", "Mr. Daniel Martinez", 1, 25, sampleSchedule)
+                ExamRoutineSlot("rt_1", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "Bangla (বাংলা)", "10/12/2026", "Sunday", "10:00 AM - 01:00 PM", "Hall 1"),
+                ExamRoutineSlot("rt_2", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "English (ইংরেজি)", "12/12/2026", "Tuesday", "10:00 AM - 01:00 PM", "Hall 1"),
+                ExamRoutineSlot("rt_3", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "Mathematics (গণিত)", "14/12/2026", "Thursday", "10:00 AM - 01:00 PM", "Hall 1"),
+                ExamRoutineSlot("rt_4", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "General Science (বিজ্ঞান)", "16/12/2026", "Saturday", "10:00 AM - 01:00 PM", "Hall 1"),
+                ExamRoutineSlot("rt_5", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "Social Studies (বাংলাদেশ ও বিশ্বপরিচয়)", "18/12/2026", "Monday", "10:00 AM - 01:00 PM", "Hall 1"),
+                ExamRoutineSlot("rt_6", class10Id, "Class 10", ExamCategory.ANNUAL, 2026, "ICT (তথ্য ও যোগাযোগ প্রযুক্তি)", "20/12/2026", "Wednesday", "10:00 AM - 11:30 AM", "Hall 1")
             )
         }
 
-        private fun initialAttendance(): List<AttendanceRecord> {
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        private fun initialMarks(): List<StudentMark> {
+            val class10Id = "cls_12"
             return listOf(
-                AttendanceRecord("att_1", today, "cls_10a", "std_1", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_2", today, "cls_10a", "std_2", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_3", today, "cls_10a", "std_3", AttendanceStatus.LATE, "Bus delay"),
-                AttendanceRecord("att_4", today, "cls_10b", "std_4", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_5", today, "cls_10b", "std_5", AttendanceStatus.ABSENT, "Sick leave"),
-                AttendanceRecord("att_6", today, "cls_9a", "std_6", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_7", today, "cls_9a", "std_7", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_8", today, "cls_11a", "std_8", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_9", today, "cls_11a", "std_9", AttendanceStatus.PRESENT),
-                AttendanceRecord("att_10", today, "cls_12a", "std_10", AttendanceStatus.PRESENT)
-            )
-        }
+                // Tanzim Hasan (Top student)
+                StudentMark("mk_1", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_1", "Bangla (বাংলা)", 88.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_2", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_2", "English (ইংরেজি)", 84.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_3", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_3", "Mathematics (গণিত)", 96.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_4", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_4", "General Science (বিজ্ঞান)", 92.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_5", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_5", "Social Studies (বাংলাদেশ ও বিশ্বপরিচয়)", 87.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_6", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_6", "ICT (তথ্য ও যোগাযোগ প্রযুক্তি)", 46.0, 50.0, 17.0, true, "A+", 5.0),
+                StudentMark("mk_7", "STU-2026-001", "std_101", "Tanzim Hasan", "Md. Rafiqul Islam", class10Id, "Class 10", "01", ExamCategory.ANNUAL, 2026, "sub_10_7", "Higher Math (উচ্চতর গণিত)", 90.0, 100.0, 33.0, false, "A+", 5.0),
 
-        private fun initialGrades(): List<GradeRecord> {
-            return listOf(
-                GradeRecord("grd_1", "std_1", "Liam Harper", "Grade 10", "Mathematics", "Mid-Term Exam", 94.0, 100.0, "A", "2026-10-15", "Excellent analytical thinking"),
-                GradeRecord("grd_2", "std_1", "Liam Harper", "Grade 10", "Physics", "Mid-Term Exam", 88.0, 100.0, "B+", "2026-10-18", "Good laboratory performance"),
-                GradeRecord("grd_3", "std_2", "Sophia Chen", "Grade 10", "Mathematics", "Mid-Term Exam", 98.0, 100.0, "A+", "2026-10-15", "Outstanding score"),
-                GradeRecord("grd_4", "std_2", "Sophia Chen", "Grade 10", "English Literature", "Mid-Term Exam", 95.0, 100.0, "A", "2026-10-20", "Insightful essay"),
-                GradeRecord("grd_5", "std_3", "Marcus Johnson", "Grade 10", "Mathematics", "Mid-Term Exam", 78.0, 100.0, "C+", "2026-10-15", "Needs algebra practice"),
-                GradeRecord("grd_6", "std_4", "Emma Davis", "Grade 10", "World History", "Mid-Term Exam", 91.0, 100.0, "A-", "2026-10-19", "Very good presentation"),
-                GradeRecord("grd_7", "std_8", "Aria Patel", "Grade 11", "Chemistry", "Mid-Term Exam", 99.0, 100.0, "A+", "2026-10-16", "Top of the class")
-            )
-        }
+                // Sadia Afrin
+                StudentMark("mk_8", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_1", "Bangla (বাংলা)", 82.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_9", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_2", "English (ইংরেজি)", 86.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_10", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_3", "Mathematics (গণিত)", 90.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_11", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_4", "General Science (বিজ্ঞান)", 85.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_12", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_5", "Social Studies (বাংলাদেশ ও বিশ্বপরিচয়)", 81.0, 100.0, 33.0, true, "A+", 5.0),
+                StudentMark("mk_13", "STU-2026-002", "std_102", "Sadia Afrin", "Anisur Rahman", class10Id, "Class 10", "02", ExamCategory.ANNUAL, 2026, "sub_10_6", "ICT (তথ্য ও যোগাযোগ প্রযুক্তি)", 44.0, 50.0, 17.0, true, "A+", 5.0),
 
-        private fun initialNotices(): List<Notice> {
-            return listOf(
-                Notice(
-                    id = "ntc_1",
-                    title = "Annual STEM & Science Fair 2026",
-                    content = "The annual Science Fair will take place on November 20 in the Grand Auditorium. All Grade 9-12 students are invited to submit project abstracts by Friday.",
-                    date = "Nov 03, 2026",
-                    priority = NoticePriority.HIGH,
-                    category = "Events",
-                    targetAudience = "All Students & Faculty",
-                    author = "Science Department"
-                ),
-                Notice(
-                    id = "ntc_2",
-                    title = "Parent-Teacher Conference Q3",
-                    content = "Q3 Conferences will be held next Tuesday from 2:00 PM to 6:00 PM. Parents can book 15-minute slots via the student portal or by contacting the homeroom teacher.",
-                    date = "Nov 02, 2026",
-                    priority = NoticePriority.NORMAL,
-                    category = "Academic",
-                    targetAudience = "Parents & Teachers",
-                    author = "Principal's Office"
-                ),
-                Notice(
-                    id = "ntc_3",
-                    title = "Inter-School Basketball Finals",
-                    content = "Congratulations to our Oakridge Tigers Varsity team for reaching the regional finals! Support the team this Friday at 4:30 PM in Gym A.",
-                    date = "Oct 30, 2026",
-                    priority = NoticePriority.LOW,
-                    category = "Sports",
-                    targetAudience = "All Community",
-                    author = "Athletics Board"
-                ),
-                Notice(
-                    id = "ntc_4",
-                    title = "Winter Term Tuition Reminders",
-                    content = "Please ensure that second-installment tuition fees are settled prior to November 15 to avoid any administrative hold on student examination portals.",
-                    date = "Oct 28, 2026",
-                    priority = NoticePriority.HIGH,
-                    category = "Administrative",
-                    targetAudience = "Parents",
-                    author = "Finance Office"
-                )
-            )
-        }
-
-        private fun initialFees(): List<FeeRecord> {
-            return listOf(
-                FeeRecord("fee_1", "std_1", "Liam Harper", "Grade 10", "Term 1 (Fall 2026)", 1850.0, 1850.0, FeeStatus.PAID, "2026-09-30"),
-                FeeRecord("fee_2", "std_2", "Sophia Chen", "Grade 10", "Term 1 (Fall 2026)", 1850.0, 1850.0, FeeStatus.PAID, "2026-09-30"),
-                FeeRecord("fee_3", "std_3", "Marcus Johnson", "Grade 10", "Term 1 (Fall 2026)", 1850.0, 0.0, FeeStatus.PENDING, "2026-11-15"),
-                FeeRecord("fee_4", "std_5", "Noah Miller", "Grade 10", "Term 1 (Fall 2026)", 1850.0, 0.0, FeeStatus.OVERDUE, "2026-10-15"),
-                FeeRecord("fee_5", "std_7", "Ethan Taylor", "Grade 9", "Term 1 (Fall 2026)", 1750.0, 1000.0, FeeStatus.PARTIAL, "2026-11-15"),
-                FeeRecord("fee_6", "std_8", "Aria Patel", "Grade 11", "Term 1 (Fall 2026)", 1950.0, 1950.0, FeeStatus.PAID, "2026-09-30")
+                // Abrar Fahim (Fails in Mandatory Science)
+                StudentMark("mk_14", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_1", "Bangla (বাংলা)", 72.0, 100.0, 33.0, true, "A", 4.0),
+                StudentMark("mk_15", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_2", "English (ইংরেজি)", 65.0, 100.0, 33.0, true, "A-", 3.5),
+                StudentMark("mk_16", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_3", "Mathematics (গণিত)", 55.0, 100.0, 33.0, true, "B", 3.0),
+                StudentMark("mk_17", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_4", "General Science (বিজ্ঞান)", 28.0, 100.0, 33.0, true, "F", 0.0), // FAILED!
+                StudentMark("mk_18", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_5", "Social Studies (বাংলাদেশ ও বিশ্বপরিচয়)", 60.0, 100.0, 33.0, true, "A-", 3.5),
+                StudentMark("mk_19", "STU-2026-003", "std_103", "Abrar Fahim", "Kamrul Hassan", class10Id, "Class 10", "03", ExamCategory.ANNUAL, 2026, "sub_10_6", "ICT (তথ্য ও যোগাযোগ প্রযুক্তি)", 35.0, 50.0, 17.0, true, "A", 4.0)
             )
         }
     }
