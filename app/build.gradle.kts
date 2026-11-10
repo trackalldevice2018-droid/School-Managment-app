@@ -84,5 +84,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    implementation(libs.coil.compose)
+    implementation(libs.androidx.biometric)
+
     debugImplementation(libs.androidx.ui.tooling)
 }

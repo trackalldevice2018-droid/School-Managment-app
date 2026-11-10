@@ -54,9 +54,18 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun SchoolManagementTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    primaryColor: Color? = null,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val baseScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (primaryColor != null) {
+        baseScheme.copy(
+            primary = primaryColor,
+            primaryContainer = primaryColor.copy(alpha = 0.18f),
+            onPrimaryContainer = if (darkTheme) Color.White else primaryColor
+        )
+    } else baseScheme
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

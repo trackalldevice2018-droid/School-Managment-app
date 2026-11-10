@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -58,8 +60,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.data.model.ClassMeritRank
 import com.example.data.model.ExamCategory
+import com.example.data.model.SchoolSettings
 import com.example.data.model.StudentMarksheet
 import com.example.ui.SchoolViewModel
+import com.example.ui.components.AsyncPhotoAvatar
 import com.example.ui.components.EmptyStateView
 import com.example.ui.theme.AmberGold
 import com.example.ui.theme.CrimsonAbsent
@@ -105,13 +109,16 @@ fun ResultSystemScreen(
 }
 
 // ---------------------------------------------------------------------------------
-// SUB-TAB 0: INDIVIDUAL MARKSHEET (A4 WITH WATERMARK)
+// SUB-TAB 0: INDIVIDUAL MARKSHEET (A4 WITH WATERMARK & PRINT)
 // ---------------------------------------------------------------------------------
 @Composable
 fun IndividualMarksheetSubTab(viewModel: SchoolViewModel) {
+    val context = LocalContext.current
     val searchUniqueId by viewModel.resultSearchUniqueId.collectAsStateWithLifecycle()
     val examCategory by viewModel.resultExamCategory.collectAsStateWithLifecycle()
+    val examCategoryText by viewModel.resultExamCategoryText.collectAsStateWithLifecycle()
     val currentMarksheet by viewModel.currentMarksheet.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -135,13 +142,24 @@ fun IndividualMarksheetSubTab(viewModel: SchoolViewModel) {
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Text("পরীক্ষার ক্যাটাগরি:", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ExamCategory.entries.forEach { cat ->
+                Text("পরীক্ষার ক্যাটাগরি (সম্পাদন যোগ্য):", style = MaterialTheme.typography.labelMedium)
+                OutlinedTextField(
+                    value = examCategoryText,
+                    onValueChange = { viewModel.setResultExamCategoryText(it) },
+                    placeholder = { Text("পরীক্ষার নাম লিখুন বা নিচের অপশন নির্বাচন করুন") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(listOf("বার্ষিক পরীক্ষা", "অর্ধবার্ষিক পরীক্ষা", "১ম সাময়িক", "২য় সাময়িক", "মডেল টেস্ট", "নির্বাচনী পরীক্ষা")) { preset ->
                         FilterChip(
-                            selected = examCategory == cat,
-                            onClick = { viewModel.setResultExamCategory(cat) },
-                            label = { Text(cat.labelBn) }
+                            selected = examCategoryText == preset,
+                            onClick = {
+                                viewModel.setResultExamCategoryText(preset)
+                                ExamCategory.entries.find { it.labelBn == preset }?.let { viewModel.setResultExamCategory(it) }
+                            },
+                            label = { Text(preset, fontSize = 11.5.sp) }
                         )
                     }
                 }
@@ -155,7 +173,7 @@ fun IndividualMarksheetSubTab(viewModel: SchoolViewModel) {
                     OutlinedTextField(
                         value = searchUniqueId,
                         onValueChange = { viewModel.setResultSearchUniqueId(it) },
-                        label = { Text("শিক্ষার্থীর ইউনিক আইডি") },
+                        label = { Text("শিক্ষার্থীর স্টুডেন্ট আইডি") },
                         placeholder = { Text("STU-2026-001") },
                         singleLine = true,
                         modifier = Modifier
@@ -183,11 +201,38 @@ fun IndividualMarksheetSubTab(viewModel: SchoolViewModel) {
             EmptyStateView(
                 icon = Icons.Default.Grade,
                 title = "কোনো মার্কশীট প্রদর্শিত হচ্ছে না",
-                description = "ইউনিক আইডি ও পরীক্ষার ক্যাটাগরি দিয়ে সার্চ করুন।",
+                description = "স্টুডেন্ট আইডি ও পরীক্ষার ক্যাটাগরি দিয়ে সার্চ করুন।",
                 modifier = Modifier.height(200.dp)
             )
         } else {
-            OfficialA4MarksheetView(marksheet = currentMarksheet!!)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "অফিসিয়াল ট্রান্সক্রিপ্ট প্রিভিউ",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Button(
+                    onClick = { viewModel.printIndividualMarksheet(context) },
+                    modifier = Modifier.testTag("print_transcript_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("ট্রান্সক্রিপ্ট প্রিন্ট / PDF")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OfficialA4MarksheetView(
+                marksheet = currentMarksheet!!,
+                settings = settings
+            )
         }
 
         Spacer(modifier = Modifier.height(30.dp))
@@ -195,7 +240,10 @@ fun IndividualMarksheetSubTab(viewModel: SchoolViewModel) {
 }
 
 @Composable
-fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
+fun OfficialA4MarksheetView(
+    marksheet: StudentMarksheet,
+    settings: SchoolSettings
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -206,36 +254,54 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // CENTRAL WATERMARK (প্রতিষ্ঠানের লোগোর জলছাপ)
-            Image(
-                painter = painterResource(id = R.drawable.ic_school_logo),
-                contentDescription = "Watermark",
-                modifier = Modifier
-                    .size(240.dp)
-                    .align(Alignment.Center)
-                    .alpha(0.08f) // Subtle institutional watermark
-            )
+            if (settings.showWatermark) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!settings.customLogoUri.isNullOrBlank()) {
+                        val imgFile = if (settings.customLogoUri.startsWith("/")) java.io.File(settings.customLogoUri) else settings.customLogoUri
+                        coil.compose.SubcomposeAsyncImage(
+                            model = imgFile,
+                            contentDescription = "Watermark",
+                            alpha = settings.watermarkOpacity.coerceIn(0.04f, 0.25f),
+                            modifier = Modifier.size(220.dp)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_school_logo),
+                            contentDescription = "Watermark",
+                            modifier = Modifier
+                                .size(220.dp)
+                                .alpha(settings.watermarkOpacity.coerceIn(0.04f, 0.25f))
+                        )
+                    }
+                }
+            }
 
             Column(modifier = Modifier.padding(16.dp)) {
-                // Institution Header
+                // Institution Header (Reflecting SchoolSettings)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_school_logo),
-                        contentDescription = "School Logo",
-                        modifier = Modifier.size(52.dp)
+                    com.example.ui.components.SchoolLogoView(
+                        logoUri = settings.customLogoUri,
+                        size = 52,
+                        shapeCorner = 12
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "আইডিয়াল মডেল একাডেমি / Ideal Model Academy",
+                            text = settings.schoolName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "EIIN: 134567 • ধানমন্ডি, ঢাকা-১২০৫ • বাংলাদেশ",
+                            text = "${settings.eiinNumber} • ${settings.schoolAddress} • ${settings.contactPhone}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -252,27 +318,58 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
                 HorizontalDivider(thickness = 2.dp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Exam & Student Metadata Table Box
+                // Exam & Student Metadata Table Box (with Photo)
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("পরীক্ষা: ${marksheet.examCategory.labelBn} (${marksheet.year})", fontWeight = FontWeight.Bold)
-                            Text("ইউনিক আইডি: ${marksheet.student.uniqueId}", fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncPhotoAvatar(
+                            photoUri = marksheet.student.photoUri,
+                            name = marksheet.student.name,
+                            colorHex = marksheet.student.avatarColorHex,
+                            size = 64,
+                            shapeCorner = 8
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("পরীক্ষা: ${marksheet.examCategory.labelBn} (${marksheet.year})", fontWeight = FontWeight.Bold)
+                                Text("স্টুডেন্ট আইডি: ${marksheet.student.uniqueId}", fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("শিক্ষার্থী: ${marksheet.student.name}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                if (marksheet.classMeritPosition > 0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AmberGold.copy(alpha = 0.18f)
+                                    ) {
+                                        Text(
+                                            text = "মেধাক্রম: ${marksheet.classMeritPosition}ম স্থান (${marksheet.totalStudentsInClass} জনের মধ্যে)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AmberGold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("শ্রেণি: ${marksheet.student.className} • রোল: ${marksheet.student.rollNo}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                Text("পাস স্ট্যাটাস: ${if (marksheet.isPassed) "উত্তীর্ণ" else "অনুত্তীর্ণ"}", style = MaterialTheme.typography.bodySmall, color = if (marksheet.isPassed) EmeraldPresent else CrimsonAbsent, fontWeight = FontWeight.Bold)
+                            }
+                            Text("পিতা: ${marksheet.student.fatherName} • মাতা: ${marksheet.student.motherName}", style = MaterialTheme.typography.bodySmall)
+                            Text("জন্ম নিবন্ধন: ${marksheet.student.birthRegNo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("শিক্ষার্থীর নাম: ${marksheet.student.name}", style = MaterialTheme.typography.bodySmall)
-                            Text("শ্রেণি: ${marksheet.student.className} • রোল: ${marksheet.student.rollNo}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("পিতার নাম: ${marksheet.student.fatherName}", style = MaterialTheme.typography.bodySmall)
-                            Text("মাতার নাম: ${marksheet.student.motherName}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text("জন্ম নিবন্ধন: ${marksheet.student.birthRegNo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -322,7 +419,7 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Final Summary Box (Total, GPA, Grade, Pass/Fail)
+                // Final Summary Box (Total, GPA, Grade, Pass/Fail, Merit Position)
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = if (marksheet.isPassed) EmeraldLight else MaterialTheme.colorScheme.errorContainer,
@@ -346,6 +443,15 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("চূড়ান্ত গ্রেড", style = MaterialTheme.typography.labelSmall)
                             Text(marksheet.letterGrade, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if (marksheet.isPassed) EmeraldPresent else MaterialTheme.colorScheme.error)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("মেধাক্রম (Rank)", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = if (marksheet.classMeritPosition > 0) "${marksheet.classMeritPosition}ম" else "--",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("ফলাফল স্ট্যাটাস", style = MaterialTheme.typography.labelSmall)
@@ -385,13 +491,13 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Dr. M. Rahman",
+                            text = settings.principalName,
                             fontStyle = FontStyle.Italic,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text("প্রধান শিক্ষক (অধ্যক্ষ)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        Text("আইডিয়াল মডেল একাডেমি", style = MaterialTheme.typography.labelSmall, fontSize = 9.sp)
+                        Text(settings.principalTitle, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(settings.schoolName, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp)
                     }
                 }
             }
@@ -400,13 +506,15 @@ fun OfficialA4MarksheetView(marksheet: StudentMarksheet) {
 }
 
 // ---------------------------------------------------------------------------------
-// SUB-TAB 1: CLASS-WISE MERIT LIST (মেধাতালিকা)
+// SUB-TAB 1: CLASS-WISE MERIT LIST (মেধাতালিকা ও প্রিন্ট)
 // ---------------------------------------------------------------------------------
 @Composable
 fun ClassMeritListSubTab(viewModel: SchoolViewModel) {
+    val context = LocalContext.current
     val classes by viewModel.classes.collectAsStateWithLifecycle()
     val meritClassId by viewModel.meritClassId.collectAsStateWithLifecycle()
     val meritCategory by viewModel.meritExamCategory.collectAsStateWithLifecycle()
+    val meritCategoryText by viewModel.meritExamCategoryText.collectAsStateWithLifecycle()
     val meritYear by viewModel.meritYear.collectAsStateWithLifecycle()
     val meritList by viewModel.classMeritList.collectAsStateWithLifecycle()
 
@@ -445,13 +553,24 @@ fun ClassMeritListSubTab(viewModel: SchoolViewModel) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text("পরীক্ষা:", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ExamCategory.entries.forEach { cat ->
+                Text("পরীক্ষার ক্যাটাগরি (সম্পাদন যোগ্য):", style = MaterialTheme.typography.labelMedium)
+                OutlinedTextField(
+                    value = meritCategoryText,
+                    onValueChange = { viewModel.setMeritExamCategoryText(it) },
+                    placeholder = { Text("পরীক্ষার নাম লিখুন বা নিচের অপশন নির্বাচন করুন") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(listOf("বার্ষিক পরীক্ষা", "অর্ধবার্ষিক পরীক্ষা", "১ম সাময়িক", "২য় সাময়িক", "মডেল টেস্ট", "নির্বাচনী পরীক্ষা")) { preset ->
                         FilterChip(
-                            selected = meritCategory == cat,
-                            onClick = { viewModel.setMeritExamCategory(cat) },
-                            label = { Text(cat.labelBn) }
+                            selected = meritCategoryText == preset,
+                            onClick = {
+                                viewModel.setMeritExamCategoryText(preset)
+                                ExamCategory.entries.find { it.labelBn == preset }?.let { viewModel.setMeritExamCategory(it) }
+                            },
+                            label = { Text(preset, fontSize = 11.5.sp) }
                         )
                     }
                 }
@@ -465,22 +584,27 @@ fun ClassMeritListSubTab(viewModel: SchoolViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "${currentClass?.name ?: "শ্রেণি"} - মেধাতালিকা (${meritList.size} জন)",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            ) {
+            Column {
+                Text(
+                    text = "${currentClass?.name ?: "শ্রেণি"} - মেধাতালিকা (${meritList.size} জন)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(
                     text = "${meritCategory.labelBn} • $meritYear",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    color = MaterialTheme.colorScheme.primary
                 )
+            }
+
+            Button(
+                onClick = { viewModel.printClassMeritList(context) },
+                modifier = Modifier.testTag("print_merit_list_button"),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("মেধাতালিকা প্রিন্ট / PDF")
             }
         }
 
@@ -553,7 +677,7 @@ fun MeritRankCard(rank: ClassMeritRank) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "রোল: ${rank.student.rollNo} • আইডি: ${rank.student.uniqueId}",
+                    text = "রোল: ${rank.student.rollNo} • স্টুডেন্ট আইডি: ${rank.student.uniqueId}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

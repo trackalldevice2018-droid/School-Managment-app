@@ -22,11 +22,13 @@ data class StudentEntity(
     val classId: String,
     val className: String,
     val birthRegNo: String,
+    val dateOfBirth: String = "01/01/2010",
     val fatherName: String,
     val motherName: String,
     val guardianPhone: String,
     val address: String,
-    val avatarColorHex: Long = 0xFF1E3A8A
+    val avatarColorHex: Long = 0xFF1E3A8A,
+    val photoUri: String? = null
 ) {
     fun toDomain(): Student {
         return Student(
@@ -37,11 +39,13 @@ data class StudentEntity(
             classId = classId,
             className = className,
             birthRegNo = birthRegNo,
+            dateOfBirth = dateOfBirth,
             fatherName = fatherName,
             motherName = motherName,
             guardianPhone = guardianPhone,
             address = address,
-            avatarColorHex = avatarColorHex
+            avatarColorHex = avatarColorHex,
+            photoUri = photoUri
         )
     }
 
@@ -55,11 +59,13 @@ data class StudentEntity(
                 classId = student.classId,
                 className = student.className,
                 birthRegNo = student.birthRegNo,
+                dateOfBirth = student.dateOfBirth,
                 fatherName = student.fatherName,
                 motherName = student.motherName,
                 guardianPhone = student.guardianPhone,
                 address = student.address,
-                avatarColorHex = student.avatarColorHex
+                avatarColorHex = student.avatarColorHex,
+                photoUri = student.photoUri
             )
         }
     }

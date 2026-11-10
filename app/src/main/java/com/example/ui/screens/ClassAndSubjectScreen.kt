@@ -165,21 +165,68 @@ fun ClassAndSubjectScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            var showDeleteClassConfirm by remember { mutableStateOf<com.example.data.model.SchoolClass?>(null) }
+
             // Subject Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "${currentClass?.name ?: "শ্রেণি"} এর বিষয়সমূহ (${subjects.size})",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${currentClass?.name ?: "শ্রেণি"} এর বিষয়সমূহ (${subjects.size})",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (currentClass != null && classes.size > 1) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { showDeleteClassConfirm = currentClass },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Class",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = "টোটাল ও পাস মার্কিং স্কেল",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (showDeleteClassConfirm != null) {
+                val target = showDeleteClassConfirm!!
+                AlertDialog(
+                    onDismissRequest = { showDeleteClassConfirm = null },
+                    title = { Text("শ্রেণি মুছে ফেলতে চান?", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Text("আপনি কি নিশ্চিত যে '${target.name}' শ্রেণি এবং এর সাথে যুক্ত বিষয়সমূহ মুছে ফেলতে চান?")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.deleteClass(target.id)
+                                showDeleteClassConfirm = null
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Text("হ্যাঁ, মুছে ফেলুন")
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(onClick = { showDeleteClassConfirm = null }) {
+                            Text("বাতিল")
+                        }
+                    }
                 )
             }
 

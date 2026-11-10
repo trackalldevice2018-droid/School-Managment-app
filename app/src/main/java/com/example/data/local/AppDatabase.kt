@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
         SubjectEntity::class,
         ExamResultEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -83,11 +83,11 @@ abstract class AppDatabase : RoomDatabase() {
 
             // Initial Students
             val initialStudents = listOf(
-                StudentEntity("std_101", "STU-2026-001", "01", "Tanzim Hasan (তানজিম হাসান)", class10Id, "Class 10", "20092692518001234", "Md. Rafiqul Islam", "Nazma Begum", "+880 1711-234567", "House 12, Road 4, Dhanmondi, Dhaka", 0xFF1E3A8A),
-                StudentEntity("std_102", "STU-2026-002", "02", "Sadia Afrin (সাদিয়া আফরিন)", class10Id, "Class 10", "20092692518001235", "Anisur Rahman", "Shahana Parvin", "+880 1819-345678", "Plot 24, Sector 7, Uttara, Dhaka", 0xFF0D9488),
-                StudentEntity("std_103", "STU-2026-003", "03", "Abrar Fahim (আবরার ফাহিম)", class10Id, "Class 10", "20092692518001236", "Kamrul Hassan", "Farhana Akter", "+880 1912-456789", "Block C, Bashundhara R/A, Dhaka", 0xFF7C3AED),
-                StudentEntity("std_104", "STU-2026-004", "04", "Sumaiya Khanom (সুমাইয়া খানম)", class10Id, "Class 10", "20092692518001237", "Mokhlesur Rahman", "Rina Akter", "+880 1610-567890", "Mirpur 10, Dhaka", 0xFFDB2777),
-                StudentEntity("std_105", "STU-2026-005", "05", "Zubair Ahmed (জুবায়ের আহমেদ)", class10Id, "Class 10", "20092692518001238", "Alamgir Hossain", "Parvin Begum", "+880 1515-678901", "Mohammadpur, Dhaka", 0xFFD97706)
+                StudentEntity("std_101", "STU-2026-001", "01", "Tanzim Hasan (তানজিম হাসান)", class10Id, "Class 10", "20092692518001234", "15/03/2009", "Md. Rafiqul Islam", "Nazma Begum", "+880 1711-234567", "House 12, Road 4, Dhanmondi, Dhaka", 0xFF1E3A8A),
+                StudentEntity("std_102", "STU-2026-002", "02", "Sadia Afrin (সাদিয়া আফরিন)", class10Id, "Class 10", "20092692518001235", "20/07/2009", "Anisur Rahman", "Shahana Parvin", "+880 1819-345678", "Plot 24, Sector 7, Uttara, Dhaka", 0xFF0D9488),
+                StudentEntity("std_103", "STU-2026-003", "03", "Abrar Fahim (আবরার ফাহিম)", class10Id, "Class 10", "20092692518001236", "10/11/2009", "Kamrul Hassan", "Farhana Akter", "+880 1912-456789", "Block C, Bashundhara R/A, Dhaka", 0xFF7C3AED),
+                StudentEntity("std_104", "STU-2026-004", "04", "Sumaiya Khanom (সুমাইয়া খানম)", class10Id, "Class 10", "20092692518001237", "05/01/2010", "Mokhlesur Rahman", "Rina Akter", "+880 1610-567890", "Mirpur 10, Dhaka", 0xFFDB2777),
+                StudentEntity("std_105", "STU-2026-005", "05", "Zubair Ahmed (জুবায়ের আহমেদ)", class10Id, "Class 10", "20092692518001238", "12/09/2009", "Alamgir Hossain", "Parvin Begum", "+880 1515-678901", "Mohammadpur, Dhaka", 0xFFD97706)
             )
             db.studentDao().insertStudents(initialStudents)
 

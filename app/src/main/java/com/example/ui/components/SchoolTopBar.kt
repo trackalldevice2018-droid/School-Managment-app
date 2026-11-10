@@ -7,13 +7,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -21,13 +20,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +38,8 @@ import java.util.Locale
 fun SchoolTopBar(
     title: String,
     subtitle: String = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault()).format(Date()),
+    logoUri: String? = null,
+    onAboutClick: (() -> Unit)? = null,
     onNotificationClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -56,18 +54,28 @@ fun SchoolTopBar(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_school_logo),
-                    contentDescription = "School Logo",
-                    modifier = Modifier.size(34.dp)
+            if (!logoUri.isNullOrBlank()) {
+                AsyncPhotoAvatar(
+                    photoUri = logoUri,
+                    name = "Logo",
+                    colorHex = 0xFF1E3A8A,
+                    size = 40,
+                    shapeCorner = 10
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_school_logo),
+                        contentDescription = "School Logo",
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -84,6 +92,19 @@ fun SchoolTopBar(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            if (onAboutClick != null) {
+                IconButton(
+                    onClick = onAboutClick,
+                    modifier = Modifier.testTag("about_us_topbar_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "আমাদের সম্পর্কে ও নির্মাতা",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             if (onNotificationClick != null) {
